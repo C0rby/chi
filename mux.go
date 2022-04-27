@@ -119,7 +119,9 @@ func (mx *Mux) HandleFunc(pattern string, handlerFn http.HandlerFunc) {
 // Method adds the route `pattern` that matches `method` http method to
 // execute the `handler` http.Handler.
 func (mx *Mux) Method(method, pattern string, handler http.Handler) {
+	methodMapMutex.RLock()
 	m, ok := methodMap[strings.ToUpper(method)]
+	methodMapMutex.RUnlock()
 	if !ok {
 		panic(fmt.Sprintf("chi: '%s' http method is not supported.", method))
 	}
@@ -352,7 +354,9 @@ func (mx *Mux) Middlewares() Middlewares {
 // Note: the *Context state is updated during execution, so manage
 // the state carefully or make a NewRouteContext().
 func (mx *Mux) Match(rctx *Context, method, path string) bool {
+	methodMapMutex.RLock()
 	m, ok := methodMap[method]
+	methodMapMutex.RUnlock()
 	if !ok {
 		return false
 	}
@@ -433,7 +437,9 @@ func (mx *Mux) routeHTTP(w http.ResponseWriter, r *http.Request) {
 	if rctx.RouteMethod == "" {
 		rctx.RouteMethod = r.Method
 	}
+	methodMapMutex.RLock()
 	method, ok := methodMap[rctx.RouteMethod]
+	methodMapMutex.RUnlock()
 	if !ok {
 		mx.MethodNotAllowedHandler().ServeHTTP(w, r)
 		return

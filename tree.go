@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type methodTyp uint
@@ -31,6 +32,7 @@ const (
 var mALL = mCONNECT | mDELETE | mGET | mHEAD |
 	mOPTIONS | mPATCH | mPOST | mPUT | mTRACE
 
+var methodMapMutex sync.RWMutex
 var methodMap = map[string]methodTyp{
 	http.MethodConnect: mCONNECT,
 	http.MethodDelete:  mDELETE,
@@ -50,6 +52,8 @@ func RegisterMethod(method string) {
 		return
 	}
 	method = strings.ToUpper(method)
+	methodMapMutex.Lock()
+	defer methodMapMutex.Unlock()
 	if _, ok := methodMap[method]; ok {
 		return
 	}
@@ -343,12 +347,14 @@ func (n *node) setEndpoint(method methodTyp, handler http.Handler, pattern strin
 		h.handler = handler
 		h.pattern = pattern
 		h.paramKeys = paramKeys
+		methodMapMutex.RLock()
 		for _, m := range methodMap {
 			h := n.endpoints.Value(m)
 			h.handler = handler
 			h.pattern = pattern
 			h.paramKeys = paramKeys
 		}
+		methodMapMutex.RUnlock()
 	} else {
 		h := n.endpoints.Value(method)
 		h.handler = handler
@@ -765,6 +771,8 @@ func longestPrefix(k1, k2 string) int {
 }
 
 func methodTypString(method methodTyp) string {
+	methodMapMutex.RLock()
+	defer methodMapMutex.RUnlock()
 	for s, t := range methodMap {
 		if method == t {
 			return s
